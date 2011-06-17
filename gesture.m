@@ -1,10 +1,19 @@
-#import <Foundation/Foundation.h>
-#import <Foundation/NSAutoReleasePool.h>
 typedef void* CVImageBufferRef;
 #import <SpringBoard/SpringBoard.h>
 #import <CaptainHook/CaptainHook.h>
 
 CHDeclareClass(UIStatusBar);
+
+enum TWTweetComposeViewControllerResult {
+  TWTweetComposeViewControllerResultCancelled,
+  TWTweetComposeViewControllerResultDone
+};
+typedef enum TWTweetComposeViewControllerResult TWTweetComposeViewControllerResult;
+typedef void (^TWTweetComposeViewControllerCompletionHandler)(TWTweetComposeViewControllerResult result);
+
+@interface TWTweetComposeViewController : UIViewController
+@property(nonatomic, copy) TWTweetComposeViewControllerCompletionHandler completionHandler;
+@end
 
 CHDeclareMethod(0, void, UIStatusBar, swipeLeft)
 {
@@ -23,50 +32,74 @@ CHDeclareMethod(0, void, UIStatusBar, swipeRight)
   [self performSelector:@selector(swipeLeft) withObject:nil afterDelay:0.10f];
 }
 
-CHOptimizedMethod(1, super, id, UIStatusBar, initWithFrame, CGRect, frame)
+CHDeclareMethod(0, void, UIStatusBar, doubleTapped)
 {
-  self = CHSuper(1, UIStatusBar, initWithFrame, frame);
-  if (self != nil) {
-    UISwipeGestureRecognizer *recognizer = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeLeft)];
-    recognizer.direction = UISwipeGestureRecognizerDirectionLeft;
-    [self addGestureRecognizer:recognizer];
-    [recognizer release];
+#define TWEET_VIEW_TAG 328
 
-    recognizer = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeRight)];
-    recognizer.direction = UISwipeGestureRecognizerDirectionRight;
-    [self addGestureRecognizer:recognizer];
-    [recognizer release];
+  SpringBoard *springBoard = (SpringBoard *) [UIApplication sharedApplication];
+  UIWindow *window = [springBoard keyWindow];
+
+  if ([window viewWithTag:TWEET_VIEW_TAG] != nil) {
+    return;
   }
 
-  return self;
+  TWTweetComposeViewController *tweetController = [[TWTweetComposeViewController alloc] init];
+  tweetController.completionHandler = ^(TWTweetComposeViewControllerResult result) {
+    [tweetController.view removeFromSuperview];
+    [tweetController release];
+  };
+  tweetController.view.tag = TWEET_VIEW_TAG;
+  [window addSubview:tweetController.view];
 }
 
-CHOptimizedMethod(2, super, id, UIStatusBar, initWithFrame, CGRect, frame, showForegroundView, BOOL, view)
-{
-  self = CHSuper(2, UIStatusBar, initWithFrame, frame, showForegroundView, view);
-  if (self != nil) {
-    UISwipeGestureRecognizer *recognizer = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeLeft)];
-    recognizer.direction = UISwipeGestureRecognizerDirectionLeft;
-    [self addGestureRecognizer:recognizer];
-    [recognizer release];
+BOOL eventHandled;
+CGPoint oldPoint;
 
-    recognizer = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeRight)];
-    recognizer.direction = UISwipeGestureRecognizerDirectionRight;
-    [self addGestureRecognizer:recognizer];
-    [recognizer release];
+CHOptimizedMethod(2, super, void, UIStatusBar, touchesBegan, NSSet *, touches, withEvent, UIEvent *, event)
+{
+  eventHandled = NO;
+  oldPoint = [[touches anyObject] locationInView:self];
+
+	CHSuper(2, UIStatusBar, touchesBegan, touches, withEvent, event);
+}
+
+#define DELTA 50.0f
+CHOptimizedMethod(2, super, void, UIStatusBar, touchesMoved, NSSet *, touches, withEvent, UIEvent *, event)
+{
+  if (!eventHandled) {
+    CGPoint point = [[touches anyObject] locationInView:self];
+    float deltaX = point.x - oldPoint.x;
+    float deltaY = point.y - oldPoint.y;
+    if (deltaX * deltaX > deltaY * deltaY) {
+      if (deltaX > DELTA) {
+        eventHandled = YES;
+        [self performSelector:@selector(swipeRight) withObject:nil];
+      } else if (deltaX < -DELTA) {
+        eventHandled = YES;
+        [self performSelector:@selector(swipeLeft) withObject:nil];
+      }
+    }
   }
 
-  return self;
+  CHSuper(2, UIStatusBar, touchesMoved, touches, withEvent, event);
+}
+
+CHOptimizedMethod(2, super, void, UIStatusBar, touchesEnded, NSSet *, touches, withEvent, UIEvent *, event)
+{
+  if (!eventHandled) {
+    if ([[touches anyObject] tapCount] == 2) {
+      [self performSelector:@selector(doubleTapped) withObject:nil];
+    }
+  }
+
+	CHSuper(2, UIStatusBar, touchesEnded, touches, withEvent, event);
 }
 
 CHConstructor
 {
-  NSLog(@"Gesture injected!!!");
-
   CHLoadLateClass(UIStatusBar);
 
-  //- (id)initWithFrame:(CGRect)frame showForegroundView:(BOOL)view;
-  //- (id)initWithFrame:(CGRect)frame; 
-  CHHook(1, UIStatusBar, initWithFrame);
-  CHHook(2, UIStatusBar, initWithFrame, showForegroundView);
+  CHHook(2, UIStatusBar, touchesBegan, withEvent);
+  CHHook(2, UIStatusBar, touchesMoved, withEvent);
+  CHHook(2, UIStatusBar, touchesEnded, withEvent);
 }

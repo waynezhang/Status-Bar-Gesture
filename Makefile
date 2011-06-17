@@ -10,7 +10,7 @@ else
 
 TWEAK_NAME = gesture
 gesture_OBJC_FILES = gesture.m
-gesture_FRAMEWORKS = UIKit
+gesture_FRAMEWORKS = UIKit Twitter
 gesture_PRIVATE_FRAMEWORKS = GraphicsServices
 
 include framework/makefiles/common.mk

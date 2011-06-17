@@ -1,1 +1,4 @@
 Place gesture.dylib to /System/Library and add /System/Library/gesture.dylib to DYLD_INSERT_LIBRARIES in /System/Library/LaunchDaemons/com.apple.SpringBoard.plist
+
+Changelog #1:
+-  now with twitter support, double tap the status bar to tweet

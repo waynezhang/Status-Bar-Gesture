@@ -32,24 +32,26 @@ CHDeclareMethod(0, void, UIStatusBar, swipeRight)
   [self performSelector:@selector(swipeLeft) withObject:nil afterDelay:0.10f];
 }
 
+static UIWindow *_sharedTweetWindow = nil;
 CHDeclareMethod(0, void, UIStatusBar, doubleTapped)
 {
-#define TWEET_VIEW_TAG 328
+  if (_sharedTweetWindow == nil) {
+    _sharedTweetWindow = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];  
+  } 
+  if (_sharedTweetWindow.rootViewController == nil) {
+    TWTweetComposeViewController *tweetController = [[TWTweetComposeViewController alloc] init];
+    tweetController.completionHandler = ^(TWTweetComposeViewControllerResult result) {
+      [_sharedTweetWindow resignKeyWindow];
+      _sharedTweetWindow.hidden = YES;
 
-  SpringBoard *springBoard = (SpringBoard *) [UIApplication sharedApplication];
-  UIWindow *window = [springBoard keyWindow];
-
-  if ([window viewWithTag:TWEET_VIEW_TAG] != nil) {
-    return;
+      _sharedTweetWindow.rootViewController = nil;
+    };
+    _sharedTweetWindow.rootViewController = tweetController;
+    [tweetController release];
   }
 
-  TWTweetComposeViewController *tweetController = [[TWTweetComposeViewController alloc] init];
-  tweetController.completionHandler = ^(TWTweetComposeViewControllerResult result) {
-    [tweetController.view removeFromSuperview];
-    [tweetController release];
-  };
-  tweetController.view.tag = TWEET_VIEW_TAG;
-  [window addSubview:tweetController.view];
+  [_sharedTweetWindow makeKeyAndVisible];
+  _sharedTweetWindow.hidden = NO;
 }
 
 BOOL eventHandled;

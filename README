@@ -1,5 +1,10 @@
 Place gesture.dylib to /System/Library and add /System/Library/gesture.dylib to DYLD_INSERT_LIBRARIES in /System/Library/LaunchDaemons/com.apple.SpringBoard.plist
 
+Changelog #3:
+-  Handle Interface Orientation (Only in 3rd party app)
+-  No single tap event any more if swipe or double tap handled
+-  TapToScroll of UITableView still works no matter how many times tweet controlled showed
+
 Changelog #2:
 -  Third party app won't crash if twitter canceled
 
